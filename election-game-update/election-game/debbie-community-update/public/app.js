@@ -37,7 +37,7 @@ async function preparePhoto(file){
 function renderRegistration(){
  state.stage='register';
  const profile=state.player||read('ballot-player');
- app.innerHTML=`<div class="welcome"><section class="welcome-copy">${steps(1)}<div class="eyebrow">משחק הבחירות של החבר׳ה</div><h1>120 מנדטים.\nמי יפגע בול?</h1><p>החבורה כבר בחליפות. עכשיו תורכם לחלק את המנדטים ולנחש איך תיראה הכנסת הבאה.</p><form id="register" class="signup"><h2>נכנסים לקלפי</h2><label for="player-name">איך קוראים לכם?</label><input id="player-name" name="name" autocomplete="name" minlength="2" maxlength="40" required placeholder="השם שלכם" value="${esc(profile?.name||'')}"><p class="muted">השם והתמונה שתבחרו יופיעו בטבלת הדירוג של התחרות.</p>${photoSignup(profile)}<button class="primary">ממשיכים לבחירת המנדטים ←</button><p class="trustline">נקודות בלבד · בלי כסף · אפשר לעדכן עד הנעילה</p></form><div class="welcome-stats"><div><strong>120</strong><span>מנדטים לחלוקה</span></div><div><strong>${state.game.parties.length}</strong><span>מפלגות על הלוח</span></div><div><strong>1</strong><span>ניחוש שינצח</span></div></div></section><div class="hero-art" role="img" aria-label="הדמויות המצוירות של משחק הבחירות"></div></div>`;
+ app.innerHTML=`<div class="welcome"><section class="welcome-copy">${steps(1)}<div class="eyebrow">משחק הבחירות של החבר׳ה</div><h1>120 מנדטים.\nמי יפגע בול?</h1><p>החבורה כבר בחליפות. עכשיו תורכם לחלק את המנדטים ולנחש איך תיראה הכנסת הבאה.</p><form id="register" class="signup"><h2>נכנסים לקלפי</h2><label for="player-name">איך קוראים לכם?</label><input id="player-name" name="name" autocomplete="name" minlength="2" maxlength="40" required placeholder="השם שלכם" value="${esc(profile?.name||'')}"><p class="muted">השם והתמונה שתבחרו יופיעו בטבלת הדירוג של התחרות.</p>${photoSignup(profile)}<button class="primary">ממשיכים לבחירת המנדטים ←</button><p class="trustline">נקודות בלבד · בלי כסף · אפשר לעדכן עד הנעילה</p></form><div class="welcome-stats"><div><strong>120</strong><span>מנדטים לחלוקה</span></div><div><strong>${state.game.parties.length}</strong><span>מפלגות על הלוח</span></div><div><strong>1</strong><span>ניחוש שינצח</span></div></div></section>${flagArt()}</div>`;
  bindAvatarFallbacks();
  let avatarChoice,photoBusy=false,photoSequence=0;
  const previewPhoto=url=>{$('#photo-preview').innerHTML=avatarMarkup(url,$('#player-name').value,'avatar-large');$('#remove-photo').hidden=!url;bindAvatarFallbacks($('#photo-preview'));};
@@ -97,8 +97,39 @@ function renderPlay(){
 }
 function renderBoard(content){
  const g=state.game;
- content.innerHTML=`<section class="panel"><h2>${g.results?'התוצאות על הלוח 🏆':'מי כבר נכנס לקלפי?'}</h2><p class="muted">${g.results?'יותר נקודות = ניחוש קרוב יותר. ניחוש מושלם מקבל 120 נקודות.':'כל הנרשמים לתחרות מופיעים כאן. הדירוג יופיע אחרי פרסום התוצאות.'}</p>${g.count?g.leaderboard.map(r=>`<div class="board-row"><span class="board-person">${avatarMarkup(r.avatar,r.name)}<span class="board-name">${g.results&&r.score!==null?g.leaderboard.findIndex(x=>x.score===r.score)+1+'. ':''}${esc(r.name)}</span></span><strong>${r.hasGuess===false?'טרם נשמר ניחוש':r.score===null?'ממתין לתוצאות':r.score+' נק׳'}</strong></div>`).join(''):'<div class="empty">היו הראשונים להצטרף לתחרות</div>'}</section>`;
+ const canView=r=>g.predictionsVisible&&r.hasGuess&&/^[a-f0-9]{48}$/.test(r.predictionId);
+ content.innerHTML=`<section class="panel"><h2>${g.results?'התוצאות על הלוח 🏆':'מי כבר נכנס לקלפי?'}</h2><p class="muted">${g.results?'יותר נקודות = ניחוש קרוב יותר. ניחוש מושלם מקבל 120 נקודות.':'כל הנרשמים לתחרות מופיעים כאן. הדירוג יופיע אחרי פרסום התוצאות.'}</p><p class="notice">${g.predictionsVisible?'הניחושים ננעלו. לחצו על שם משתתף כדי לראות את הניחוש ששמר. במחשב אפשר גם לרחף מעל השם.':'הניחושים של כולם נשארים פרטיים עד הנעילה. אחרי הנעילה תוכלו ללחוץ על שם משתתף ולראות את הבחירות שלו.'}</p>${g.count?g.leaderboard.map(r=>{
+ const name=`<span class="board-name">${g.results&&r.score!==null?g.leaderboard.findIndex(x=>x.score===r.score)+1+'. ':''}${esc(r.name)}${canView(r)?'<small class="prediction-label">צפייה בניחוש ↓</small>':''}</span>`;
+ return `<div class="board-row">${canView(r)?`<button type="button" class="board-person prediction-button" data-prediction="${esc(r.predictionId)}" aria-expanded="false" aria-controls="prediction-${esc(r.predictionId)}" aria-label="${esc('צפייה בניחוש של '+r.name)}">${avatarMarkup(r.avatar,r.name)}${name}</button>`:`<span class="board-person">${avatarMarkup(r.avatar,r.name)}${name}</span>`}<strong>${r.hasGuess===false?'טרם נשמר ניחוש':r.score===null?'ממתין לתוצאות':r.score+' נק׳'}</strong>${canView(r)?`<div class="board-prediction" id="prediction-${esc(r.predictionId)}" role="region" aria-label="${esc('הניחוש של '+r.name)}" hidden></div>`:''}</div>`;
+ }).join(''):'<div class="empty">היו הראשונים להצטרף לתחרות</div>'}</section>`;
  bindAvatarFallbacks(content);
+ content.querySelectorAll('[data-prediction]').forEach(button=>{
+  const row=button.closest('.board-row'),preview=row.querySelector('.board-prediction');
+  let pinned=false,loading=false,loaded=false;
+  const hide=()=>{preview.hidden=true;button.setAttribute('aria-expanded','false');};
+  const show=async()=>{
+   if(!state.game.predictionsVisible)return;
+   preview.hidden=false;button.setAttribute('aria-expanded','true');
+   if(loaded||loading)return;
+   loading=true;preview.innerHTML='<p class="muted" role="status">טוענים את הניחוש…</p>';
+   const gameId=state.id;
+   try{
+    const prediction=await api('games/'+gameId+'/predictions/'+button.dataset.prediction);
+    if(!preview.isConnected||state.id!==gameId||state.stage!=='play')return;
+    if(!Array.isArray(prediction.seats)||prediction.seats.length!==g.parties.length||prediction.seats.some(n=>!Number.isInteger(n)||n<0||n>120)||prediction.seats.reduce((sum,n)=>sum+n,0)!==120)throw Error('לא ניתן להציג את הניחוש');
+    const chosen=g.parties.map((name,index)=>({name,index,seats:prediction.seats[index]})).filter(p=>p.seats>0).sort((a,b)=>b.seats-a.seats||a.index-b.index);
+    preview.innerHTML=`<h3>הניחוש של ${esc(prediction.name)}</h3><ol class="saved-list">${chosen.map(p=>`<li class="saved-row">${portrait(artwork(p.index),p.name,'saved-party-art')}<span class="saved-party-name">${esc(p.name)}</span><span class="saved-seat-count"><strong>${p.seats}</strong> מנדטים</span></li>`).join('')}</ol><div class="saved-total"><strong>סך הכול</strong><strong>120 מנדטים</strong></div><p class="muted">מפלגות שלא נבחרו: 0 מנדטים. זהו הניחוש שנשמר לפני הנעילה.</p>`;
+    loaded=true;
+   }catch(e){if(preview.isConnected)preview.innerHTML=`<p class="error" role="alert">${esc(e.message)}</p>`;}
+   finally{loading=false;}
+  };
+  button.onclick=()=>{pinned=!pinned;if(pinned)show();else hide();};
+  button.addEventListener('pointerenter',e=>{if(e.pointerType==='mouse')show();});
+  row.addEventListener('pointerleave',e=>{if(e.pointerType==='mouse'&&!pinned)hide();});
+  button.addEventListener('focus',()=>show());
+  row.addEventListener('focusout',e=>{if(!pinned&&!row.contains(e.relatedTarget))hide();});
+  button.addEventListener('keydown',e=>{if(e.key==='Escape'){pinned=false;hide();}});
+ });
 }
 function renderSummary(content){
  const chosen=state.game.parties.map((name,index)=>({name,index,seats:state.mine.seats[index]})).filter(p=>p.seats>0).sort((a,b)=>b.seats-a.seats||a.index-b.index);
@@ -170,7 +201,7 @@ function renderManage(){
 }
 async function refresh(){
  if(!state.id||!state.game||state.busy||state.stage!=='play')return;
- try{const wasLocked=locked();state.game=await api('games/'+state.id);if(state.stage!=='play')return;if($('#count'))$('#count').textContent=state.game.count;if(state.tab==='board'||(!wasLocked&&locked())){if(dialog.open)dialog.close();renderPlay();}else if($('#submit-guesses'))updateTotal();}catch{}
+ try{const wasLocked=locked();state.game=await api('games/'+state.id);if(state.stage!=='play')return;if($('#count'))$('#count').textContent=state.game.count;if((state.tab==='board'&&!document.querySelector('.prediction-button[aria-expanded="true"]'))||(!wasLocked&&locked())){if(dialog.open)dialog.close();renderPlay();}else if($('#submit-guesses'))updateTotal();}catch{}
 }
 async function init(){
  try{

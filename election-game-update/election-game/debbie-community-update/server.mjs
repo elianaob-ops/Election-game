@@ -8,6 +8,7 @@ db.exec(`PRAGMA journal_mode=WAL; CREATE TABLE IF NOT EXISTS games(id TEXT PRIMA
 const key=()=>randomBytes(24).toString('hex');
 db.exec('CREATE TABLE IF NOT EXISTS players(token TEXT PRIMARY KEY,name TEXT NOT NULL,created INTEGER NOT NULL); CREATE TABLE IF NOT EXISTS game_cards(game TEXT PRIMARY KEY,cards TEXT NOT NULL); CREATE TABLE IF NOT EXISTS app_settings(key TEXT PRIMARY KEY,value TEXT NOT NULL);');
 db.exec('CREATE TABLE IF NOT EXISTS player_avatars(token TEXT PRIMARY KEY,image_id TEXT UNIQUE NOT NULL,mime TEXT NOT NULL,data BLOB NOT NULL); CREATE TABLE IF NOT EXISTS game_participants(game TEXT NOT NULL,player_token TEXT NOT NULL,joined INTEGER NOT NULL,PRIMARY KEY(game,player_token)); CREATE TABLE IF NOT EXISTS guess_profiles(game TEXT NOT NULL,token TEXT NOT NULL,player_token TEXT NOT NULL,PRIMARY KEY(game,token));');
+db.exec('CREATE TABLE IF NOT EXISTS guess_views(game TEXT NOT NULL,guess_token TEXT NOT NULL,public_id TEXT UNIQUE NOT NULL,PRIMARY KEY(game,guess_token));');
 const avatarUrl=row=>row?.image_id?'/api/avatars/'+row.image_id:null;
 function decodeAvatar(value){
  if(value===null)return null;
@@ -63,7 +64,7 @@ const server=http.createServer(async(req,res)=>{
  if(await auth.route(req,res,url.pathname,body,reply))return;
  const user=auth.userFor(req);
  if(!user)return reply(401,{error:'יש להתחבר עם שם משתמש וסיסמה',code:'login_required'});
- if(user.status!=='approved')return reply(403,{error:'ההרשמה ממתינה לאישור דבי בקהילה',code:'approval_required'});
+ if(user.status!=='approved')return reply(403,{error:'ההרשמה ממתינה לאישור אליענה',code:'approval_required'});
  if(auth.members(req,url.pathname,body,user,reply))return;
  if(url.pathname==='/api/lobby'&&req.method==='GET')return reply(200,{id:lobbyId});
  const avatarMatch=url.pathname.match(/^\/api\/avatars\/([a-f0-9]{48})$/);
@@ -99,18 +100,33 @@ const server=http.createServer(async(req,res)=>{
  const cards=body.cards??parties.map(cardFor);if(!Array.isArray(cards)||cards.length!==parties.length||cards.some(c=>c!==null&&!catalog.some(p=>p.id===c)))return reply(400,{error:'איורי המפלגות אינם תקינים'});
  const id=key(),secret=key();db.prepare('INSERT INTO games VALUES(?,?,?,?,?,NULL)').run(id,secret,title.trim(),JSON.stringify(parties.map(p=>p.trim())),end);db.prepare('INSERT INTO game_cards VALUES(?,?)').run(id,JSON.stringify(cards));return reply(201,{id,secret});
  }
- const match=url.pathname.match(/^\/api\/games\/([a-f0-9]{48})(?:\/(guess|results|my-guess))?$/);if(!match)return reply(404,{error:'לא נמצא'});
+ const match=url.pathname.match(/^\/api\/games\/([a-f0-9]{48})(?:\/(guess|results|my-guess|predictions\/([a-f0-9]{48})))?$/);if(!match)return reply(404,{error:'לא נמצא'});
  const game=db.prepare('SELECT * FROM games WHERE id=?').get(match[1]);if(!game)return reply(404,{error:'התחרות לא נמצאה'});
  const parties=JSON.parse(game.parties),results=game.results?JSON.parse(game.results):null;
+ const predictionsVisible=Date.now()>=game.deadline;
+ if(req.method==='GET'&&match[3]){
+ if(!predictionsVisible)return reply(403,{error:'אפשר לראות ניחושים של משתתפים אחרים רק אחרי נעילת הניחושים'});
+ const prediction=db.prepare(`SELECT COALESCE(p.name,g.name) AS name,g.seats FROM guess_views v JOIN guesses g ON g.game=v.game AND g.token=v.guess_token LEFT JOIN guess_profiles gp ON gp.game=g.game AND gp.token=g.token JOIN players p ON p.token=COALESCE(gp.player_token,g.token) JOIN accounts a ON a.id=p.token WHERE v.game=? AND v.public_id=? AND a.status='approved'`).get(game.id,match[3]);
+ if(!prediction)return reply(404,{error:'הניחוש לא נמצא בתחרות'});
+ return reply(200,{name:prediction.name,seats:JSON.parse(prediction.seats)});
+ }
  if(req.method==='GET'&&!match[2]){
  const rows=db.prepare('SELECT COALESCE(p.name,g.name) AS name,g.seats,g.token,COALESCE(gp.player_token,g.token) AS profile,a.image_id FROM guesses g LEFT JOIN guess_profiles gp ON gp.game=g.game AND gp.token=g.token LEFT JOIN players p ON p.token=COALESCE(gp.player_token,g.token) LEFT JOIN player_avatars a ON a.token=COALESCE(gp.player_token,g.token) WHERE g.game=? AND EXISTS(SELECT 1 FROM accounts ac WHERE ac.id=COALESCE(gp.player_token,g.token) AND ac.status=\'approved\') ORDER BY g.created').all(game.id);
  const savedProfiles=new Set(rows.map(r=>r.profile));
- const leaderboard=rows.map(r=>({name:r.name,score:results?score(JSON.parse(r.seats),results):null,hasGuess:true,avatar:avatarUrl(r)}));
+ const leaderboard=rows.map(r=>{
+ const entry={name:r.name,score:results?score(JSON.parse(r.seats),results):null,hasGuess:true,avatar:avatarUrl(r)};
+ if(predictionsVisible){
+ let view=db.prepare('SELECT public_id FROM guess_views WHERE game=? AND guess_token=?').get(game.id,r.token);
+ if(!view){view={public_id:key()};db.prepare('INSERT INTO guess_views VALUES(?,?,?)').run(game.id,r.token,view.public_id);}
+ entry.predictionId=view.public_id;
+ }
+ return entry;
+ });
  const participants=db.prepare('SELECT p.name,p.token,a.image_id FROM game_participants m JOIN players p ON p.token=m.player_token LEFT JOIN player_avatars a ON a.token=p.token WHERE m.game=? AND EXISTS(SELECT 1 FROM accounts ac WHERE ac.id=p.token AND ac.status=\'approved\') ORDER BY m.joined').all(game.id);
  for(const person of participants)if(!savedProfiles.has(person.token))leaderboard.push({name:person.name,score:null,hasGuess:false,avatar:avatarUrl(person)});
  if(results)leaderboard.sort((a,b)=>(b.score??-1)-(a.score??-1));
  const savedCards=db.prepare('SELECT cards FROM game_cards WHERE game=?').get(game.id);
- return reply(200,{id:game.id,title:game.title,parties,cards:savedCards?JSON.parse(savedCards.cards):parties.map(cardFor),deadline:game.deadline,results,count:leaderboard.length,submittedCount:rows.length,leaderboard});
+ return reply(200,{id:game.id,title:game.title,parties,cards:savedCards?JSON.parse(savedCards.cards):parties.map(cardFor),deadline:game.deadline,predictionsVisible,results,count:leaderboard.length,submittedCount:rows.length,leaderboard});
  }
  if(req.method==='POST'&&match[2]==='my-guess'){
  const owned=db.prepare('SELECT token FROM guess_profiles WHERE game=? AND token=? AND player_token=?').get(game.id,body.token,user.id);

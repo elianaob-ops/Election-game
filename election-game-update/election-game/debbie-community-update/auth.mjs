@@ -56,8 +56,8 @@ export async function communityAuth(db){
   if(passwordWork>=4)return reply(429,{error:'השרת מטפל בכמה בקשות כרגע. נסו שוב בעוד רגע.'}),true;
   passwordWork++;try{
   if(path==='/api/auth/register'){
-   const name=typeof body.name==='string'?body.name.trim():'';
-   if(name.length<2||name.length>40)return reply(400,{error:'יש להזין את השם שבו אתם מופיעים בקבוצת הוואטסאפ, 2–40 תווים.'}),true;
+   const name=body.name===undefined?username:typeof body.name==='string'?body.name.trim():'';
+   if(name.length<2||name.length>40)return reply(400,{error:'יש להזין שם לתצוגה באורך 2–40 תווים.'}),true;
    if(db.prepare('SELECT id FROM accounts WHERE username=?').get(username))return reply(409,{error:'שם המשתמש תפוס. נסו להתחבר או בחרו שם אחר.'}),true;
    const hash=await passwordHash(password);
    const legacy=typeof body.legacyToken==='string'&&/^[a-f0-9]{48}$/.test(body.legacyToken)&&db.prepare('SELECT token FROM players WHERE token=?').get(body.legacyToken)&&!db.prepare('SELECT id FROM accounts WHERE id=?').get(body.legacyToken);
@@ -71,7 +71,7 @@ export async function communityAuth(db){
    const account=db.prepare('SELECT a.*,p.name FROM accounts a JOIN players p ON p.token=a.id WHERE username=?').get(username);
    const matches=await passwordMatches(password,account?.password_hash||dummy);
    if(!account||!matches)return reply(401,{error:'שם המשתמש או הסיסמה אינם נכונים.'}),true;
-   if(account.status==='rejected')return reply(403,{error:'בקשת ההצטרפות לא אושרה. פנו לדבי בקבוצת הוואטסאפ.'}),true;
+   if(account.status==='rejected')return reply(403,{error:'בקשת ההצטרפות לא אושרה. פנו לאליענה כדי לברר לגבי אישור ההצטרפות.'}),true;
    startSession(req,res,account.id);return reply(200,{user:publicUser(account)}),true;
   }
   return reply(404,{}),true;
