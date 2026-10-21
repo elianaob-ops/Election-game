@@ -1,0 +1,1 @@
+{"name":"mandate-game","private":true,"type":"module","scripts":{"start":"node server.mjs","test":"node --test test.mjs registration.test.mjs","test:ui":"node --test ui.test.mjs"},"devDependencies":{"jsdom":"26.1.0"},"engines":{"node":">=24"}}
