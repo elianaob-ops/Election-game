@@ -134,7 +134,7 @@ function renderBoard(content){
  });
 }
 function renderReceipt(content){
- content.innerHTML=`<section class="panel submission-receipt"><div class="receipt-check" aria-hidden="true">✓</div><div class="eyebrow">120 מתוך 120 מנדטים</div><h2 id="receipt-title" tabindex="-1">הימורך התקבל, נתעדכן בקרוב</h2><p>ההימור שלך נשמר בהצלחה. אפשר לצפות בו ולעדכן אותו עד מועד הנעילה.</p><div class="receipt-actions"><button type="button" class="button" id="receipt-view-summary">צפייה בהימור שלי</button><button type="button" class="secondary" id="receipt-view-board">לטבלת הדירוג</button></div></section>`;
+ content.innerHTML=`<section class="panel submission-receipt"><div class="receipt-luck"><img src="/assets/fingers-crossed.png?v=2" alt="מחזיקים אצבעות" decoding="async"></div><div class="eyebrow">120 מתוך 120 מנדטים</div><h2 id="receipt-title" tabindex="-1">הימורך התקבל, נתעדכן בקרוב</h2><p>ההימור שלך נשמר בהצלחה. אפשר לצפות בו ולעדכן אותו עד מועד הנעילה. <span class="receipt-wish">בשורות טובות.</span></p><div class="receipt-actions"><button type="button" class="button" id="receipt-view-summary">צפייה בהימור שלי</button><button type="button" class="secondary" id="receipt-view-board">לטבלת הדירוג</button></div></section>`;
  $('#receipt-view-summary').onclick=()=>{state.tab='summary';renderPlay();$('#summary-title')?.focus();};
  $('#receipt-view-board').onclick=()=>{state.tab='board';renderPlay();};
 }
