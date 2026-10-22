@@ -18,7 +18,7 @@ function avatarMarkup(url,name,extra=''){
  return `<span class="avatar ${extra}" role="img" aria-label="${esc('תמונת המשתתף '+name)}">${valid?`<img class="avatar-photo" src="${esc(url)}" alt="" loading="lazy">`:''}<span class="avatar-default" ${valid?'hidden':''}><svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="14" r="7"></circle><path d="M7 36c0-9 5-14 13-14s13 5 13 14"></path></svg></span></span>`;
 }
 function bindAvatarFallbacks(root=document){root.querySelectorAll('img.avatar-photo').forEach(img=>img.addEventListener('error',()=>{const fallback=img.nextElementSibling;if(fallback)fallback.hidden=false;img.remove();},{once:true}));}
-function photoSignup(profile){return `<div class="photo-upload"><div id="photo-preview">${avatarMarkup(profile?.avatar,profile?.name||'','avatar-large')}</div><div class="photo-controls"><label for="player-photo">תמונה לטבלת הדירוג — לבחירתכם</label><input id="player-photo" type="file" accept="image/jpeg,image/png,image/webp"><button type="button" id="remove-photo" class="text-button" ${profile?.avatar?'':'hidden'}>שימוש בתמונת ברירת המחדל</button><p id="photo-status" class="muted" aria-live="polite">אפשר להמשיך עם תמונת ברירת המחדל.</p></div></div>`;}
+function photoSignup(profile){return `<div class="photo-upload"><div id="photo-preview">${avatarMarkup(profile?.avatar,profile?.name||'','avatar-large')}</div><div class="photo-controls"><label for="player-photo">תמונה לטבלת הדירוג - לבחירתכם</label><input id="player-photo" type="file" accept="image/jpeg,image/png,image/webp"><button type="button" id="remove-photo" class="text-button" ${profile?.avatar?'':'hidden'}>שימוש בתמונת ברירת המחדל</button><p id="photo-status" class="muted" aria-live="polite">אפשר להמשיך עם תמונת ברירת המחדל.</p></div></div>`;}
 async function preparePhoto(file){
  if(!['image/jpeg','image/png','image/webp'].includes(file.type))throw Error('יש לבחור תמונת JPG, PNG או WebP');
  if(file.size>8*1024*1024)throw Error('יש לבחור תמונה קטנה מ־8 מגה');
@@ -68,7 +68,6 @@ function renderRegistration(){
  };
 }
 function validArray(a){return Array.isArray(a)&&a.length===state.game.parties.length&&a.every(n=>Number.isInteger(n)&&n>=0&&n<=120);}
-function validPredictionArray(a){return validArray(a)&&a.every(n=>n===0||n>=4);}
 function heading(title,subtitle){return `<div class="page-heading"><div><div class="eyebrow">${esc(state.game?.title||'דבי פוליטי בוחרת')}</div><h1>${esc(title)}</h1><p>${esc(subtitle)}</p></div>${state.player?`<div class="user-pill">${avatarMarkup(state.player.avatar,state.player.name)}<span>שלום, ${esc(state.player.name)}</span><button class="text-button edit-name" id="edit-name">עריכת פרופיל</button></div>`:''}</div>`;}
 function links(){
  if(state.account?.role!=='admin')return '';
@@ -92,8 +91,8 @@ function renderPlay(){
  if(state.tab==='summary'&&state.mine)return renderSummary(content);
  const editable=admin?Date.now()>=state.game.deadline:!closed;
  const markedBelow=i=>!admin&&values[i]===0&&(state.belowThreshold.has(i)||state.mine?.seats[i]===0);
- const note=admin?(editable?'הזינו תוצאות סופיות. הסכום הכולל חייב להיות 120.':'ניתן להזין תוצאות אחרי מועד נעילת הניחושים.'):closed?'הניחושים נעולים. אפשר לצפות בניחוש ובטבלת הדירוג.':state.dirty?'יש בחירות שעדיין לא נשמרו. בסיום החלוקה לחצו על שליחת ההימור.':state.mine?'הניחוש שלכם שמור. אפשר לשנות ולשמור מחדש עד הנעילה.':'בחרו בין 4 ל־120 מנדטים למפלגה, או סמנו שהיא לא עוברת את אחוז החסימה. יש לחלק בדיוק 120 מנדטים כדי לשלוח.';
- content.innerHTML=`<p class="notice">${esc(note)}</p><div class="party-grid">${state.game.parties.map((name,i)=>`<button class="party-card ${values[i]?'selected':markedBelow(i)?'threshold-marked':''}" data-party="${i}" ${!editable||state.busy?'disabled':''} aria-label="${esc(name)}: ${values[i]} מנדטים, לחצו לבחירה" aria-haspopup="dialog">${portrait(artwork(i),name)}<span class="party-name">${esc(name)}</span><span class="party-value">${values[i]?`<strong>${values[i]}</strong>מנדטים`:markedBelow(i)?'<span class="party-zero">לא עובר את אחוז החסימה</span>':'לחצו לבחירת מנדטים'}</span></button>`).join('')}</div><section class="allocation-bar" aria-label="סיכום המנדטים"><div><div class="remaining"><strong id="remaining-count"></strong><span id="remaining-label">מנדטים נותרו לחלוקה</span></div><p>חולקו <span id="sum"></span> מנדטים</p><div class="progress"><span id="progress"></span></div></div><span class="hint" id="allocation-hint" aria-live="polite"></span><button type="button" id="submit-guesses" class="primary">${state.busy?'שולחים…':admin?'פרסום תוצאות':state.mine?'עדכון ההימור ←':'שליחת ההימור ←'}</button></section>`;
+ const note=admin?(editable?'הזינו תוצאות סופיות. הסכום הכולל חייב להיות 120.':'ניתן להזין תוצאות אחרי מועד נעילת הניחושים.'):closed?'הניחושים נעולים. אפשר לצפות בניחוש ובטבלת הדירוג.':state.dirty?'יש בחירות שעדיין לא נשמרו. בסיום החלוקה לחצו על שליחת ההימור.':state.mine?'הניחוש שלכם שמור. אפשר לשנות ולשמור מחדש עד הנעילה.':'בחרו בין 1 ל־120 מנדטים למפלגה. יש לחלק בדיוק 120 מנדטים כדי לשלוח.';
+ content.innerHTML=`<p class="notice">${esc(note)}</p><div class="party-grid">${state.game.parties.map((name,i)=>`<button class="party-card ${values[i]?'selected':markedBelow(i)?'threshold-marked':''}" data-party="${i}" ${!editable||state.busy?'disabled':''} aria-label="${esc(name)}: ${values[i]} מנדטים, לחצו לבחירה" aria-haspopup="dialog">${portrait(artwork(i),name)}<span class="party-name">${esc(name)}</span><span class="party-value">${values[i]?`<strong>${values[i]}</strong>מנדטים`:markedBelow(i)?'<span class="party-zero">ללא מנדטים</span>':'לחצו לבחירת מנדטים'}</span></button>`).join('')}</div><section class="allocation-bar" aria-label="סיכום המנדטים"><div><div class="remaining"><strong id="remaining-count"></strong><span id="remaining-label">מנדטים נותרו לחלוקה</span></div><p>חולקו <span id="sum"></span> מנדטים</p><div class="progress"><span id="progress"></span></div></div><span class="hint" id="allocation-hint" aria-live="polite"></span><button type="button" id="submit-guesses" class="primary">${state.busy?'שולחים…':admin?'פרסום תוצאות':state.mine?'עדכון ההימור ←':'שליחת ההימור ←'}</button></section>`;
  document.querySelectorAll('[data-party]').forEach(b=>b.onclick=()=>openPicker(Number(b.dataset.party)));
  $('#submit-guesses').onclick=submit;
  updateTotal();
@@ -151,35 +150,35 @@ function updateTotal(){
  $('#remaining-count').textContent=String(Math.abs(120-sum));$('#remaining-label').textContent=sum>120?'מנדטים בחריגה':'מנדטים נותרו לחלוקה';
  $('#sum').textContent=sum+' / 120';$('#progress').style.width=Math.min(100,sum/120*100)+'%';
  $('.allocation-bar').classList.toggle('over',sum>120);
- const validRange=admin?validArray(values):validPredictionArray(values);
- $('#allocation-hint').textContent=!validRange?'יש לתקן בחירות של 1–3 מנדטים: בחרו לפחות 4 או לא עובר את אחוז החסימה.':sum<120?'נשארו '+(120-sum)+' מנדטים לחלוקה':sum>120?'יש להוריד '+(sum-120)+' מנדטים':'כל המנדטים חולקו ✓';
+ const validRange=validArray(values);
+ $('#allocation-hint').textContent=!validRange?'יש לבחור מנדטים שלמים בין 1 ל־120.':sum<120?'נשארו '+(120-sum)+' מנדטים לחלוקה':sum>120?'יש להוריד '+(sum-120)+' מנדטים':'כל המנדטים חולקו ✓';
  $('#submit-guesses').disabled=state.busy||!validRange||sum!==120||(admin?Date.now()<state.game.deadline:locked());
 }
 function openPicker(index){
  const admin=state.tab==='admin';if(state.busy||(admin?Date.now()<state.game.deadline:locked()))return;
  state.activeIndex=index;const values=admin?state.results:state.seats,name=state.game.parties[index],c=artwork(index);
  $('#dialog-title').textContent=name;$('#dialog-portrait').setAttribute('style',artStyle(c));$('#dialog-portrait').setAttribute('aria-label','איור של '+name);$('#dialog-portrait').textContent=c?'':'✓';
- const minimum=admin?1:4;
- $('#seat-choice').innerHTML=Array.from({length:121-minimum},(_,i)=>`<option value="${i+minimum}">${i+minimum} מנדטים</option>`).join('');
- $('#seat-choice').value=String(values[index]>=minimum?values[index]:minimum);
+ $('#seat-choice').innerHTML=Array.from({length:120},(_,i)=>{
+  const seats=i+1,label=!admin&&seats<=3?`${seats} - מתחת לאחוז החסימה`:`${seats} מנדטים`;
+  return `<option value="${seats}">${label}</option>`;
+ }).join('');
+ $('#seat-choice').value=String(values[index]>0?values[index]:1);
  const updatePickerHint=()=>{const other=values.reduce((a,b)=>a+b,0)-values[index],left=120-other-Number($('#seat-choice').value);$('#dialog-hint').textContent=left>=0?'אחרי הבחירה הזו יישארו עוד '+left+' מנדטים לחלוקה.':'הבחירה הזו תיצור חריגה של '+Math.abs(left)+' מנדטים. אפשר להפחית ממפלגה אחרת.';};
  $('#seat-choice').onchange=updatePickerHint;$('#seat-choice').oninput=updatePickerHint;updatePickerHint();
- $('#remove-seat').hidden=false;$('#remove-seat').textContent=admin?'0 מנדטים':'לא עובר את אחוז החסימה';
  dialog.showModal();$('#seat-choice').focus();
 }
 function chooseSeat(value){
  const admin=state.tab==='admin';if(state.busy||state.activeIndex===null||(admin?Date.now()<state.game.deadline:locked())){dialog.close();return;}
- if(!Number.isInteger(value)||value<0||value>120||(!admin&&value>0&&value<4))return;
+ if(!Number.isInteger(value)||value<1||value>120)return;
  const values=admin?state.results:state.seats;values[state.activeIndex]=value;if(!admin){state.dirty=true;if(value===0)state.belowThreshold.add(state.activeIndex);else state.belowThreshold.delete(state.activeIndex);}
  dialog.close();renderPlay();document.querySelector(`[data-party="${state.activeIndex}"]`)?.focus();
 }
 $('#close-dialog').onclick=()=>dialog.close();
-$('#seat-form').onsubmit=e=>{e.preventDefault();const n=Number($('#seat-choice').value);if(n>=(state.tab==='admin'?1:4)&&n<=120)chooseSeat(n);};
-$('#remove-seat').onclick=()=>chooseSeat(0);
+$('#seat-form').onsubmit=e=>{e.preventDefault();const raw=$('#seat-choice').value,n=Number(raw);if(raw!==''&&n>=1&&n<=120)chooseSeat(n);};
 dialog.addEventListener('click',e=>{if(e.target===dialog){const b=dialog.getBoundingClientRect();if(e.clientX<b.left||e.clientX>b.right||e.clientY<b.top||e.clientY>b.bottom)dialog.close();}});
 async function submit(){
  const admin=state.tab==='admin',values=admin?state.results:state.seats;
- if(state.busy||!(admin?validArray(values):validPredictionArray(values))||values.reduce((a,b)=>a+b,0)!==120||(admin?Date.now()<state.game.deadline:locked()))return;
+ if(state.busy||!validArray(values)||values.reduce((a,b)=>a+b,0)!==120||(admin?Date.now()<state.game.deadline:locked()))return;
  const snapshot=[...values];
  state.busy=true;renderPlay();
  try{
@@ -197,7 +196,7 @@ function renderGallery(){
  app.innerHTML=`<div class="page-heading"><div><div class="eyebrow">החבורה של הקלפי</div><h1>כל מפלגה, והאופי שלה.</h1><p>הכירו את הדמויות. כדי לנחש כמה מנדטים כל מפלגה תקבל, נכנסים למשחק.</p></div><a class="button" href="/">הרשמה למשחק ←</a></div><div class="party-grid">${state.catalog.map(c=>`<figure class="gallery-card">${portrait(c,c.name)}<figcaption>${esc(c.name)}</figcaption></figure>`).join('')}</div><p class="muted" style="margin-top:25px">האיורים סאטיריים ונוצרו באמצעות בינה מלאכותית.</p>`;
 }
 function renderManage(){
- app.innerHTML=`<section class="manage-heading"><div class="eyebrow">מסך המנהל</div><h1>פותחים תחרות משלכם.</h1><p>מגדירים את המפלגות ואת מועד הנעילה, ומשתפים קישור שמתחיל בהרשמה ובבחירת מנדטים.</p></section><form id="create" class="panel"><label for="title">שם התחרות</label><input id="title" maxlength="100" required value="הקלפי של דבי פוליטי"><label for="deadline">מתי נועלים את הניחושים? (שעון ישראל)</label><input id="deadline" type="datetime-local" required><p class="inline-heading">המפלגות בתחרות</p><p class="muted">אפשר לשנות את שם המפלגה שמופיע על הכרטיס, או להסיר אותה מהתחרות.</p><div class="manage-grid">${state.catalog.map(c=>`<div class="manage-party"><input type="checkbox" checked data-enabled="${c.id}" aria-label="הכללת ${esc(c.name)}">${portrait(c,c.name,'manage-portrait')}<input type="text" maxlength="60" required data-label="${c.id}" aria-label="שם המפלגה עבור ${esc(c.name)}" value="${esc(c.name)}"></div>`).join('')}</div><label for="extra">מפלגות נוספות, אם צריך — אחת בכל שורה</label><textarea id="extra" placeholder="שם מפלגה נוספת"></textarea><button class="primary">יצירת התחרות וקישור ההשתתפות ←</button></form>`;
+ app.innerHTML=`<section class="manage-heading"><div class="eyebrow">מסך המנהל</div><h1>פותחים תחרות משלכם.</h1><p>מגדירים את המפלגות ואת מועד הנעילה, ומשתפים קישור שמתחיל בהרשמה ובבחירת מנדטים.</p></section><form id="create" class="panel"><label for="title">שם התחרות</label><input id="title" maxlength="100" required value="הקלפי של דבי פוליטי"><label for="deadline">מתי נועלים את הניחושים? (שעון ישראל)</label><input id="deadline" type="datetime-local" required><p class="inline-heading">המפלגות בתחרות</p><p class="muted">אפשר לשנות את שם המפלגה שמופיע על הכרטיס, או להסיר אותה מהתחרות.</p><div class="manage-grid">${state.catalog.map(c=>`<div class="manage-party"><input type="checkbox" checked data-enabled="${c.id}" aria-label="הכללת ${esc(c.name)}">${portrait(c,c.name,'manage-portrait')}<input type="text" maxlength="60" required data-label="${c.id}" aria-label="שם המפלגה עבור ${esc(c.name)}" value="${esc(c.name)}"></div>`).join('')}</div><label for="extra">מפלגות נוספות, אם צריך - אחת בכל שורה</label><textarea id="extra" placeholder="שם מפלגה נוספת"></textarea><button class="primary">יצירת התחרות וקישור ההשתתפות ←</button></form>`;
  $('#deadline').value=state.config.deadline.slice(0,16);
  document.querySelectorAll('[data-enabled]').forEach(box=>box.onchange=()=>{document.querySelector(`[data-label="${box.dataset.enabled}"]`).disabled=!box.checked;});
  $('#create').onsubmit=async e=>{
