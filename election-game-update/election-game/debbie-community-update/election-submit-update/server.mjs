@@ -35,7 +35,6 @@ if(!db.prepare('SELECT value FROM app_settings WHERE key=?').get('debbie-brand-d
  db.prepare('INSERT INTO app_settings VALUES(?,?)').run('debbie-brand-deadline-v1','done');
 }
 export function validSeats(a,n){return Array.isArray(a)&&a.length===n&&a.every(x=>Number.isInteger(x)&&x>=0&&x<=120)&&a.reduce((s,x)=>s+x,0)===120;}
-export function validPrediction(a,n){return validSeats(a,n)&&a.every(x=>x===0||x>=4);}
 export function score(a,b){return 120-a.reduce((s,x,i)=>s+Math.abs(x-b[i]),0)/2;}
 function israelDate(value){
  if(typeof value!=='string'||!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value))return '';
@@ -138,7 +137,7 @@ const server=http.createServer(async(req,res)=>{
  }
  if(req.method==='POST'&&match[2]==='guess'){
  if(Date.now()>=game.deadline||results)return reply(409,{error:'התחרות נעולה לניחושים'});
- if(typeof body.name!=='string'||!body.name.trim()||body.name.length>40||!validPrediction(body.seats,parties.length))return reply(400,{error:'יש לבחור 4–120 מנדטים לכל מפלגה, או 0 למפלגה שלא עוברת את אחוז החסימה. הסכום חייב להיות בדיוק 120.'});
+ if(typeof body.name!=='string'||!body.name.trim()||body.name.length>40||!validSeats(body.seats,parties.length))return reply(400,{error:'יש לבחור 1–120 מנדטים לכל מפלגה, או 0 ללא מנדטים. הסכום חייב להיות בדיוק 120.'});
  if(body.playerToken!==undefined&&body.playerToken!==user.id)return reply(403,{error:'אפשר לשמור רק את הניחוש שלכם'});
  const owned=body.token===undefined||body.token===user.id||db.prepare('SELECT token FROM guess_profiles WHERE game=? AND token=? AND player_token=?').get(game.id,body.token,user.id);
  if(!owned)return reply(403,{error:'אפשר לשמור רק את הניחוש שלכם'});
