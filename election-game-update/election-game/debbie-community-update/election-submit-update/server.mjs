@@ -34,8 +34,9 @@ if(!db.prepare('SELECT value FROM app_settings WHERE key=?').get('debbie-brand-d
  db.prepare('UPDATE games SET title=?,deadline=? WHERE id IN (?,?) OR title=?').run(config.ballotTitle,Date.parse(config.deadline),lobbyId,'6b15e45d25e5f98673e8d956ee980ae293102138f5721093','הקלפי של בול בקלפי');
  db.prepare('INSERT INTO app_settings VALUES(?,?)').run('debbie-brand-deadline-v1','done');
 }
-export function validSeats(a,n){return Array.isArray(a)&&a.length===n&&a.every(x=>Number.isInteger(x)&&x>=0&&x<=120)&&a.reduce((s,x)=>s+x,0)===120;}
-export function score(a,b){return 120-a.reduce((s,x,i)=>s+Math.abs(x-b[i]),0)/2;}
+export function validSeats(a,n){return Array.isArray(a)&&a.length===n&&a.every(x=>Number.isInteger(x)&&(x===0||(x>=4&&x<=120)))&&a.reduce((s,x)=>s+x,0)===120;}
+export const validPrediction=validSeats;
+export function score(a,b){return 120-a.reduce((sum,x,i)=>sum+Math.abs(x-b[i]),0)/2;}
 function israelDate(value){
  if(typeof value!=='string'||!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value))return '';
  const [y,m,d,h,min]=value.match(/\d+/g).map(Number),wall=Date.UTC(y,m-1,d,h,min);
@@ -114,7 +115,8 @@ const server=http.createServer(async(req,res)=>{
  const rows=db.prepare('SELECT COALESCE(p.name,g.name) AS name,g.seats,g.token,COALESCE(gp.player_token,g.token) AS profile,a.image_id FROM guesses g LEFT JOIN guess_profiles gp ON gp.game=g.game AND gp.token=g.token LEFT JOIN players p ON p.token=COALESCE(gp.player_token,g.token) LEFT JOIN player_avatars a ON a.token=COALESCE(gp.player_token,g.token) WHERE g.game=? AND EXISTS(SELECT 1 FROM accounts ac WHERE ac.id=COALESCE(gp.player_token,g.token) AND ac.status=\'approved\') ORDER BY g.created').all(game.id);
  const savedProfiles=new Set(rows.map(r=>r.profile));
  const leaderboard=rows.map(r=>{
- const entry={name:r.name,score:results?score(JSON.parse(r.seats),results):null,hasGuess:true,avatar:avatarUrl(r)};
+ const selected=JSON.parse(r.seats),complete=validPrediction(selected,parties.length);
+ const entry={name:r.name,score:results&&complete?score(selected,results):null,hasGuess:true,complete,avatar:avatarUrl(r)};
  if(predictionsVisible){
  let view=db.prepare('SELECT public_id FROM guess_views WHERE game=? AND guess_token=?').get(game.id,r.token);
  if(!view){view={public_id:key()};db.prepare('INSERT INTO guess_views VALUES(?,?,?)').run(game.id,r.token,view.public_id);}
@@ -137,7 +139,7 @@ const server=http.createServer(async(req,res)=>{
  }
  if(req.method==='POST'&&match[2]==='guess'){
  if(Date.now()>=game.deadline||results)return reply(409,{error:'התחרות נעולה לניחושים'});
- if(typeof body.name!=='string'||!body.name.trim()||body.name.length>40||!validSeats(body.seats,parties.length))return reply(400,{error:'יש לבחור 1–120 מנדטים לכל מפלגה, או 0 ללא מנדטים. הסכום חייב להיות בדיוק 120.'});
+ if(typeof body.name!=='string'||!body.name.trim()||body.name.length>40||!validPrediction(body.seats,parties.length))return reply(400,{error:'יש לבחור 0 או מספר מנדטים שלם בין 4 ל־120, בסכום כולל של 120 בדיוק. למפלגה שלא עוברת את אחוז החסימה בחרו 0.'});
  if(body.playerToken!==undefined&&body.playerToken!==user.id)return reply(403,{error:'אפשר לשמור רק את הניחוש שלכם'});
  const owned=body.token===undefined||body.token===user.id||db.prepare('SELECT token FROM guess_profiles WHERE game=? AND token=? AND player_token=?').get(game.id,body.token,user.id);
  if(!owned)return reply(403,{error:'אפשר לשמור רק את הניחוש שלכם'});
@@ -158,7 +160,7 @@ const server=http.createServer(async(req,res)=>{
  if(req.method==='POST'&&match[2]==='results'){
  if(user.role!=='admin')return reply(403,{error:'הפעולה מיועדת למנהלת בלבד'});
  if(Date.now()<game.deadline)return reply(409,{error:'ניתן לפרסם תוצאות רק אחרי מועד הנעילה'});
- if(!validSeats(body.seats,parties.length))return reply(400,{error:'סך התוצאות חייב להיות 120 מנדטים'});
+ if(!validPrediction(body.seats,parties.length))return reply(400,{error:'יש להזין 0 או מספר מנדטים שלם בין 4 ל־120, בסכום כולל של 120 בדיוק'});
  db.prepare('UPDATE games SET results=? WHERE id=?').run(JSON.stringify(body.seats),game.id);return reply(200,{ok:true});
  }return reply(405,{error:'פעולה לא נתמכת'});
  }catch(e){reply(400,{error:'לא ניתן להשלים את הבקשה'});}
