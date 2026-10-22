@@ -2,7 +2,7 @@
 const $=s=>document.querySelector(s);
 const app=$('#app'),dialog=$('#seat-dialog');
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const state={account:null,config:null,catalog:[],game:null,id:new URLSearchParams(location.search).get('game'),secret:new URLSearchParams(location.hash.slice(1)).get('admin'),player:null,stage:'register',tab:'guess',seats:[],results:[],mine:null,busy:false,dirty:false,activeIndex:null,belowThreshold:new Set()};
+const state={account:null,config:null,catalog:[],game:null,id:new URLSearchParams(location.search).get('game'),secret:new URLSearchParams(location.hash.slice(1)).get('admin'),player:null,stage:'register',tab:'guess',seats:[],results:[],mine:null,busy:false,dirty:false,activeIndex:null};
 function read(key){try{return JSON.parse(localStorage.getItem(key)||'null');}catch{return null;}}
 function write(key,value){try{localStorage.setItem(key,JSON.stringify(value));return true;}catch{return false;}}
 function tell(message,bad=false){$('#message').textContent=message;$('#message').className=bad?'error':'';}
@@ -68,6 +68,8 @@ function renderRegistration(){
  };
 }
 function validArray(a){return Array.isArray(a)&&a.length===state.game.parties.length&&a.every(n=>Number.isInteger(n)&&n>=0&&n<=120);}
+function validAllocation(a){return validArray(a)&&a.every(n=>n===0||n>=4);}
+const countedTotal=a=>a.reduce((sum,n)=>sum+n,0);
 function heading(title,subtitle){return `<div class="page-heading"><div><div class="eyebrow">${esc(state.game?.title||'דבי פוליטי בוחרת')}</div><h1>${esc(title)}</h1><p>${esc(subtitle)}</p></div>${state.player?`<div class="user-pill">${avatarMarkup(state.player.avatar,state.player.name)}<span>שלום, ${esc(state.player.name)}</span><button class="text-button edit-name" id="edit-name">עריכת פרופיל</button></div>`:''}</div>`;}
 function links(){
  if(state.account?.role!=='admin')return '';
@@ -90,9 +92,8 @@ function renderPlay(){
  if(state.tab==='board')return renderBoard(content);
  if(state.tab==='summary'&&state.mine)return renderSummary(content);
  const editable=admin?Date.now()>=state.game.deadline:!closed;
- const markedBelow=i=>!admin&&values[i]===0&&(state.belowThreshold.has(i)||state.mine?.seats[i]===0);
- const note=admin?(editable?'הזינו תוצאות סופיות. הסכום הכולל חייב להיות 120.':'ניתן להזין תוצאות אחרי מועד נעילת הניחושים.'):closed?'הניחושים נעולים. אפשר לצפות בניחוש ובטבלת הדירוג.':state.dirty?'יש בחירות שעדיין לא נשמרו. בסיום החלוקה לחצו על שליחת ההימור.':state.mine?'הניחוש שלכם שמור. אפשר לשנות ולשמור מחדש עד הנעילה.':'בחרו בין 1 ל־120 מנדטים למפלגה. יש לחלק בדיוק 120 מנדטים כדי לשלוח.';
- content.innerHTML=`<p class="notice">${esc(note)}</p><div class="party-grid">${state.game.parties.map((name,i)=>`<button class="party-card ${values[i]?'selected':markedBelow(i)?'threshold-marked':''}" data-party="${i}" ${!editable||state.busy?'disabled':''} aria-label="${esc(name)}: ${values[i]} מנדטים, לחצו לבחירה" aria-haspopup="dialog">${portrait(artwork(i),name)}<span class="party-name">${esc(name)}</span><span class="party-value">${values[i]?`<strong>${values[i]}</strong>מנדטים`:markedBelow(i)?'<span class="party-zero">ללא מנדטים</span>':'לחצו לבחירת מנדטים'}</span></button>`).join('')}</div><section class="allocation-bar" aria-label="סיכום המנדטים"><div><div class="remaining"><strong id="remaining-count"></strong><span id="remaining-label">מנדטים נותרו לחלוקה</span></div><p>חולקו <span id="sum"></span> מנדטים</p><div class="progress"><span id="progress"></span></div></div><span class="hint" id="allocation-hint" aria-live="polite"></span><button type="button" id="submit-guesses" class="primary">${state.busy?'שולחים…':admin?'פרסום תוצאות':state.mine?'עדכון ההימור ←':'שליחת ההימור ←'}</button></section>`;
+ const note=admin?(editable?'הזינו תוצאות סופיות. הסכום הכולל חייב להיות 120.':'ניתן להזין תוצאות אחרי מועד נעילת הניחושים.'):closed?'הניחושים נעולים. אפשר לצפות בניחוש ובטבלת הדירוג.':state.dirty?'יש בחירות שעדיין לא נשמרו. בסיום החלוקה לחצו על שליחת ההימור.':state.mine?'הניחוש שלכם שמור. אפשר לשנות ולשמור מחדש עד הנעילה.':'נחשו את מספר המנדטים הסופי לכל מפלגה. למפלגה שלא עוברת לחצו על ״מתחת לאחוז החסימה״. למפלגה שעוברת בחרו בין 4 ל־120. יש לחלק בדיוק 120 מנדטים כדי לשלוח.';
+ content.innerHTML=`<p class="notice">${esc(note)}</p><div class="party-grid">${state.game.parties.map((name,i)=>`<button class="party-card ${values[i]>0?'selected':'threshold-marked'}" data-party="${i}" ${!editable||state.busy?'disabled':''} aria-label="${esc(name)}: ${values[i]===0?'0 מנדטים, לא עוברת את אחוז החסימה':values[i]+' מנדטים'}, לחצו לבחירה" aria-haspopup="dialog">${portrait(artwork(i),name)}<span class="party-name">${esc(name)}</span><span class="party-value">${values[i]>0?`<strong>${values[i]}</strong>מנדטים`:'<span class="party-zero">0 מנדטים<br>לא עוברת את אחוז החסימה</span>'}</span></button>`).join('')}</div><section class="allocation-bar" aria-label="סיכום המנדטים"><div><div class="remaining"><strong id="remaining-count"></strong><span id="remaining-label">מנדטים נותרו לחלוקה</span></div><p>חולקו <span id="sum"></span> מנדטים</p><div class="progress"><span id="progress"></span></div></div><span class="hint" id="allocation-hint" aria-live="polite"></span><button type="button" id="submit-guesses" class="primary">${state.busy?'שולחים…':admin?'פרסום תוצאות':state.mine?'עדכון ההימור ←':'שליחת ההימור ←'}</button></section>`;
  document.querySelectorAll('[data-party]').forEach(b=>b.onclick=()=>openPicker(Number(b.dataset.party)));
  $('#submit-guesses').onclick=submit;
  updateTotal();
@@ -102,7 +103,7 @@ function renderBoard(content){
  const canView=r=>g.predictionsVisible&&r.hasGuess&&/^[a-f0-9]{48}$/.test(r.predictionId);
  content.innerHTML=`<section class="panel"><h2>${g.results?'התוצאות על הלוח 🏆':'מי כבר נכנס לקלפי?'}</h2><p class="muted">${g.results?'יותר נקודות = ניחוש קרוב יותר. ניחוש מושלם מקבל 120 נקודות.':'כל הנרשמים לתחרות מופיעים כאן. הדירוג יופיע אחרי פרסום התוצאות.'}</p><p class="notice">${g.predictionsVisible?'הניחושים ננעלו. לחצו על שם משתתף כדי לראות את הניחוש ששמר. במחשב אפשר גם לרחף מעל השם.':'הניחושים של כולם נשארים פרטיים עד הנעילה. אחרי הנעילה תוכלו ללחוץ על שם משתתף ולראות את הבחירות שלו.'}</p>${g.count?g.leaderboard.map(r=>{
  const name=`<span class="board-name">${g.results&&r.score!==null?g.leaderboard.findIndex(x=>x.score===r.score)+1+'. ':''}${esc(r.name)}${canView(r)?'<small class="prediction-label">צפייה בניחוש ↓</small>':''}</span>`;
- return `<div class="board-row">${canView(r)?`<button type="button" class="board-person prediction-button" data-prediction="${esc(r.predictionId)}" aria-expanded="false" aria-controls="prediction-${esc(r.predictionId)}" aria-label="${esc('צפייה בניחוש של '+r.name)}">${avatarMarkup(r.avatar,r.name)}${name}</button>`:`<span class="board-person">${avatarMarkup(r.avatar,r.name)}${name}</span>`}<strong>${r.hasGuess===false?'טרם נשמר ניחוש':r.score===null?'ממתין לתוצאות':r.score+' נק׳'}</strong>${canView(r)?`<div class="board-prediction" id="prediction-${esc(r.predictionId)}" role="region" aria-label="${esc('הניחוש של '+r.name)}" hidden></div>`:''}</div>`;
+ return `<div class="board-row">${canView(r)?`<button type="button" class="board-person prediction-button" data-prediction="${esc(r.predictionId)}" aria-expanded="false" aria-controls="prediction-${esc(r.predictionId)}" aria-label="${esc('צפייה בניחוש של '+r.name)}">${avatarMarkup(r.avatar,r.name)}${name}</button>`:`<span class="board-person">${avatarMarkup(r.avatar,r.name)}${name}</span>`}<strong>${r.hasGuess===false?'טרם נשמר ניחוש':r.complete===false?(g.predictionsVisible?'ההימור לא הושלם':'נדרשת השלמת ההימור'):r.score===null?'ממתין לתוצאות':r.score+' נק׳'}</strong>${canView(r)?`<div class="board-prediction" id="prediction-${esc(r.predictionId)}" role="region" aria-label="${esc('הניחוש של '+r.name)}" hidden></div>`:''}</div>`;
  }).join(''):'<div class="empty">היו הראשונים להצטרף לתחרות</div>'}</section>`;
  bindAvatarFallbacks(content);
  content.querySelectorAll('[data-prediction]').forEach(button=>{
@@ -118,9 +119,8 @@ function renderBoard(content){
    try{
     const prediction=await api('games/'+gameId+'/predictions/'+button.dataset.prediction);
     if(!preview.isConnected||state.id!==gameId||state.stage!=='play')return;
-    if(!Array.isArray(prediction.seats)||prediction.seats.length!==g.parties.length||prediction.seats.some(n=>!Number.isInteger(n)||n<0||n>120)||prediction.seats.reduce((sum,n)=>sum+n,0)!==120)throw Error('לא ניתן להציג את הניחוש');
-    const chosen=g.parties.map((name,index)=>({name,index,seats:prediction.seats[index]})).filter(p=>p.seats>0).sort((a,b)=>b.seats-a.seats||a.index-b.index);
-    preview.innerHTML=`<h3>הניחוש של ${esc(prediction.name)}</h3><ol class="saved-list">${chosen.map(p=>`<li class="saved-row">${portrait(artwork(p.index),p.name,'saved-party-art')}<span class="saved-party-name">${esc(p.name)}</span><span class="saved-seat-count"><strong>${p.seats}</strong> מנדטים</span></li>`).join('')}</ol><div class="saved-total"><strong>סך הכול</strong><strong>120 מנדטים</strong></div><p class="muted">מפלגות שלא נבחרו: 0 מנדטים. זהו הניחוש שנשמר לפני הנעילה.</p>`;
+    if(!validArray(prediction.seats))throw Error('לא ניתן להציג את הניחוש');
+    preview.innerHTML=`<h3>הניחוש של ${esc(prediction.name)}</h3>${allocationMarkup(prediction.seats)}`;
     loaded=true;
    }catch(e){if(preview.isConnected)preview.innerHTML=`<p class="error" role="alert">${esc(e.message)}</p>`;}
    finally{loading=false;}
@@ -138,47 +138,57 @@ function renderReceipt(content){
  $('#receipt-view-summary').onclick=()=>{state.tab='summary';renderPlay();$('#summary-title')?.focus();};
  $('#receipt-view-board').onclick=()=>{state.tab='board';renderPlay();};
 }
+function allocationMarkup(values){
+ const parties=state.game.parties.map((name,index)=>({name,index,seats:values[index]}));
+ const chosen=parties.filter(p=>p.seats>0).sort((a,b)=>b.seats-a.seats||a.index-b.index);
+ const excluded=parties.filter(p=>p.seats===0);
+ const total=countedTotal(values);
+ return `<ol class="saved-list">${chosen.map(p=>`<li class="saved-row">${portrait(artwork(p.index),p.name,'saved-party-art')}<span class="saved-party-name">${esc(p.name)}</span><span class="saved-seat-count"><strong>${p.seats}</strong> מנדטים</span></li>`).join('')}</ol>${excluded.length?`<section class="excluded-parties"><h3>מתחת לאחוז החסימה</h3><p class="muted">למפלגות הבאות ניחשתם 0 מנדטים.</p><ul class="excluded-list">${excluded.map(p=>`<li class="excluded-row">${portrait(artwork(p.index),p.name,'excluded-party-art')}<span class="excluded-party-name">${esc(p.name)}</span><span class="excluded-choice">0 מנדטים</span></li>`).join('')}</ul></section>`:''}<div class="saved-total"><strong>סך המנדטים</strong><strong>${total} מנדטים</strong></div>${!validAllocation(values)||total!==120?`<p class="notice">יש לבחור 0 או לפחות 4 לכל מפלגה, ולהגיע לסכום של 120 בדיוק. למפלגה שלא עוברת לחצו על ״מתחת לאחוז החסימה״.</p>`:''}<p class="muted">כל מספר מייצג את מספר המנדטים הסופי שניחשתם. 0 מציין שמפלגה לא עוברת את אחוז החסימה.</p>`;
+}
 function renderSummary(content){
- const chosen=state.game.parties.map((name,index)=>({name,index,seats:state.mine.seats[index]})).filter(p=>p.seats>0).sort((a,b)=>b.seats-a.seats||a.index-b.index);
- content.innerHTML=`<section class="panel saved-summary"><div class="saved-heading"><div class="saved-check" aria-hidden="true">✓</div><div><h2 id="summary-title" tabindex="-1">הניחוש נשמר בהצלחה</h2><p class="muted">${state.dirty?'הרשימה מציגה את הניחוש האחרון ששמרתם. יש שינויים נוספים במסך הבחירה שעדיין לא נשמרו.':'זו הרשימה שבחרתם, לפי מספר המנדטים.'}</p></div></div><ol class="saved-list">${chosen.map(p=>`<li class="saved-row">${portrait(artwork(p.index),p.name,'saved-party-art')}<span class="saved-party-name">${esc(p.name)}</span><span class="saved-seat-count"><strong>${p.seats}</strong> מנדטים</span></li>`).join('')}</ol><div class="saved-total"><strong>סך הכול</strong><strong>120 מנדטים</strong></div><p class="muted">מפלגות שלא נבחרו נשארו עם 0 מנדטים.</p><div class="summary-actions"><button class="secondary" id="edit-guess" ${locked()?'disabled':''}>${locked()?'הניחושים נעולים':'עריכת הניחוש'}</button><button class="button" id="view-board">לטבלת הדירוג ←</button></div></section>`;
+ content.innerHTML=`<section class="panel saved-summary"><div class="saved-heading"><div class="saved-check" aria-hidden="true">✓</div><div><h2 id="summary-title" tabindex="-1">הניחוש נשמר בהצלחה</h2><p class="muted">${state.dirty?'הרשימה מציגה את הניחוש האחרון ששמרתם. יש שינויים נוספים במסך הבחירה שעדיין לא נשמרו.':'זו הרשימה שבחרתם, לפי מספר המנדטים.'}</p></div></div>${allocationMarkup(state.mine.seats)}<div class="summary-actions"><button class="secondary" id="edit-guess" ${locked()?'disabled':''}>${locked()?'הניחושים נעולים':'עריכת הניחוש'}</button><button class="button" id="view-board">לטבלת הדירוג ←</button></div></section>`;
  $('#edit-guess').onclick=()=>{state.tab='guess';renderPlay();};
  $('#view-board').onclick=()=>{state.tab='board';renderPlay();};
 }
 function updateTotal(){
  const admin=state.tab==='admin',values=admin?state.results:state.seats;
- const sum=values.reduce((a,b)=>a+b,0);
+ const sum=countedTotal(values);
  $('#remaining-count').textContent=String(Math.abs(120-sum));$('#remaining-label').textContent=sum>120?'מנדטים בחריגה':'מנדטים נותרו לחלוקה';
  $('#sum').textContent=sum+' / 120';$('#progress').style.width=Math.min(100,sum/120*100)+'%';
  $('.allocation-bar').classList.toggle('over',sum>120);
- const validRange=validArray(values);
- $('#allocation-hint').textContent=!validRange?'יש לבחור מנדטים שלמים בין 1 ל־120.':sum<120?'נשארו '+(120-sum)+' מנדטים לחלוקה':sum>120?'יש להוריד '+(sum-120)+' מנדטים':'כל המנדטים חולקו ✓';
+ const validRange=validAllocation(values);
+ $('#allocation-hint').textContent=!validRange?'יש לבחור 0 או מספר מנדטים שלם בין 4 ל־120.':sum<120?'נשארו '+(120-sum)+' מנדטים לחלוקה':sum>120?'יש להוריד '+(sum-120)+' מנדטים':'כל המנדטים חולקו ✓';
  $('#submit-guesses').disabled=state.busy||!validRange||sum!==120||(admin?Date.now()<state.game.deadline:locked());
 }
 function openPicker(index){
  const admin=state.tab==='admin';if(state.busy||(admin?Date.now()<state.game.deadline:locked()))return;
  state.activeIndex=index;const values=admin?state.results:state.seats,name=state.game.parties[index],c=artwork(index);
  $('#dialog-title').textContent=name;$('#dialog-portrait').setAttribute('style',artStyle(c));$('#dialog-portrait').setAttribute('aria-label','איור של '+name);$('#dialog-portrait').textContent=c?'':'✓';
- $('#seat-choice').innerHTML=Array.from({length:120},(_,i)=>{
-  const seats=i+1,label=!admin&&seats<=3?`${seats} - מתחת לאחוז החסימה`:`${seats} מנדטים`;
-  return `<option value="${seats}">${label}</option>`;
+ $('#seat-choice').innerHTML=Array.from({length:117},(_,index)=>{
+  const seats=index+4;
+  return `<option value="${seats}">${seats} מנדטים</option>`;
  }).join('');
- $('#seat-choice').value=String(values[index]>0?values[index]:1);
- const updatePickerHint=()=>{const other=values.reduce((a,b)=>a+b,0)-values[index],left=120-other-Number($('#seat-choice').value);$('#dialog-hint').textContent=left>=0?'אחרי הבחירה הזו יישארו עוד '+left+' מנדטים לחלוקה.':'הבחירה הזו תיצור חריגה של '+Math.abs(left)+' מנדטים. אפשר להפחית ממפלגה אחרת.';};
+ $('#seat-choice').value=String(values[index]>=4?values[index]:4);
+ const updatePickerHint=()=>{
+  const choice=Number($('#seat-choice').value),other=countedTotal(values)-values[index],left=120-other-choice;
+  $('#dialog-hint').textContent=(left>=0?'אחרי הבחירה הזו יישארו עוד '+left+' מנדטים לחלוקה.':'הבחירה הזו תיצור חריגה של '+Math.abs(left)+' מנדטים. אפשר להפחית ממפלגה אחרת.');
+ };
  $('#seat-choice').onchange=updatePickerHint;$('#seat-choice').oninput=updatePickerHint;updatePickerHint();
  dialog.showModal();$('#seat-choice').focus();
 }
 function chooseSeat(value){
  const admin=state.tab==='admin';if(state.busy||state.activeIndex===null||(admin?Date.now()<state.game.deadline:locked())){dialog.close();return;}
- if(!Number.isInteger(value)||value<1||value>120)return;
- const values=admin?state.results:state.seats;values[state.activeIndex]=value;if(!admin){state.dirty=true;if(value===0)state.belowThreshold.add(state.activeIndex);else state.belowThreshold.delete(state.activeIndex);}
+ if(!Number.isInteger(value)||value<0||value>120||(value>0&&value<4))return;
+ const values=admin?state.results:state.seats;values[state.activeIndex]=value;if(!admin)state.dirty=true;
  dialog.close();renderPlay();document.querySelector(`[data-party="${state.activeIndex}"]`)?.focus();
 }
 $('#close-dialog').onclick=()=>dialog.close();
-$('#seat-form').onsubmit=e=>{e.preventDefault();const raw=$('#seat-choice').value,n=Number(raw);if(raw!==''&&n>=1&&n<=120)chooseSeat(n);};
+$('#below-threshold').onclick=()=>chooseSeat(0);
+$('#seat-form').onsubmit=e=>{e.preventDefault();const raw=$('#seat-choice').value,n=Number(raw);if(raw!==''&&n>=0&&n<=120)chooseSeat(n);};
 dialog.addEventListener('click',e=>{if(e.target===dialog){const b=dialog.getBoundingClientRect();if(e.clientX<b.left||e.clientX>b.right||e.clientY<b.top||e.clientY>b.bottom)dialog.close();}});
 async function submit(){
  const admin=state.tab==='admin',values=admin?state.results:state.seats;
- if(state.busy||!validArray(values)||values.reduce((a,b)=>a+b,0)!==120||(admin?Date.now()<state.game.deadline:locked()))return;
+ if(state.busy||!validAllocation(values)||countedTotal(values)!==120||(admin?Date.now()<state.game.deadline:locked()))return;
  const snapshot=[...values];
  state.busy=true;renderPlay();
  try{
