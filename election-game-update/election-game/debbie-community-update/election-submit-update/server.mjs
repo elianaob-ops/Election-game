@@ -48,7 +48,7 @@ const server=http.createServer(async(req,res)=>{
  const reply=(code,data)=>{res.writeHead(code,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(data));};
  try{
  const url=new URL(req.url,'http://localhost');
- const asset=url.pathname.match(/^\/assets\/((?:characters-[123]|character-pairs|raam-pair|haredi-pair|debbie-icon|israel-flag)\.png)$/);
+ const asset=url.pathname.match(/^\/assets\/((?:characters-[123]|character-pairs|raam-pair|haredi-pair|debbie-icon|israel-flag|fingers-crossed)\.png)$/);
  if(asset&&req.method==='GET'){res.writeHead(200,{'Content-Type':'image/png','Cache-Control':'public, max-age=3600','X-Content-Type-Options':'nosniff'});return res.end(readFileSync(new URL('./public/assets/'+asset[1],import.meta.url)));}
  if(url.pathname==='/api/health'&&req.method==='GET')return reply(200,{ok:true});
  const staticFiles={'/app.js':'text/javascript; charset=utf-8','/community.js':'text/javascript; charset=utf-8','/style.css':'text/css; charset=utf-8','/parties.json':'application/json; charset=utf-8','/config.json':'application/json; charset=utf-8'};
